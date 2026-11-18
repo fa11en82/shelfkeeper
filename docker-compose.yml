@@ -5,10 +5,10 @@ services:
     container_name: shelfkeeper
     user: "1000:1000"            # match the owner of ./config (and of the library, for folder correction)
     ports:
-      - 8585:8585                # web UI: http://192.168.1.17:8585
+      - 8585:8585                # web UI: http://IP.ADDRESS:8585
     environment:
       - TZ=America/Denver
-      - ABS_URL=http://192.168.1.17:13378   # or http://audiobookshelf:80 on the same Docker network
+      - ABS_URL=http://IP.ADDRESS:13378   # or http://audiobookshelf:80 on the same Docker network
       - ABS_TOKEN=${ABS_TOKEN}             # put ABS_TOKEN=... in a .env file next to this file
       - WEBUI_USER=admin
       - WEBUI_PASSWORD=${WEBUI_PASSWORD}   # put WEBUI_PASSWORD=... in .env too
