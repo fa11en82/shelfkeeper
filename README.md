@@ -9,11 +9,11 @@ Kometa-style automation for **Audiobookshelf**, run as a Docker container on a s
 ## Setup
 
 1. **Get an API key** in Audiobookshelf: **Settings → API Keys** (on older versions, **Settings → Users → your user → API Token**). The user needs update, upload and delete permissions.
-2. Copy this folder to the Docker host (192.168.1.17) and create a `.env` file next to `docker-compose.yml`:
+2. Copy this folder to the Docker host (IP.ADDRESS) and create a `.env` file next to `docker-compose.yml`:
    ```
    ABS_TOKEN=paste-your-key-here
    ```
-3. Check `ABS_URL` in `docker-compose.yml`. It's set to `http://192.168.1.17:13378` (the usual ABS port mapping). If shelfkeeper runs on the same Docker network as ABS, use `http://audiobookshelf:80`.
+3. Check `ABS_URL` in `docker-compose.yml`. It's set to `http://IP.ADDRESS:13378` (the usual ABS port mapping). If shelfkeeper runs on the same Docker network as ABS, use `http://audiobookshelf:80`.
 4. In `config/config.yml`, change the library name `Audiobooks` to your ABS library's exact name, then trim the examples.
 5. Build the image and run it once:
    ```bash
