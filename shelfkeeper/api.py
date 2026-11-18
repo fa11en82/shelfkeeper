@@ -116,3 +116,34 @@ class ABS:
         if self._write(f"remove cover for {label or item_id}"):
             return
         self._req("DELETE", f"/api/items/{item_id}/cover", ok404=True)
+
+    # ---- metadata / library ---------------------------------------------
+    def get_library(self, library_id):
+        return self._req("GET", f"/api/libraries/{library_id}").json()
+
+    def match_item(self, item_id, label, provider, title=None, author=None, asin=None,
+                   isbn=None, override_cover=False, override_details=False):
+        """Run ABS's own quick match. Returns {"updated":..,"libraryItem":..} or {"warning":..}."""
+        if self._write(f"match '{label}' via {provider}"):
+            return {"dry_run": True}
+        body = {"provider": provider, "overrideCover": override_cover,
+                "overrideDetails": override_details}
+        for k, v in (("title", title), ("author", author), ("asin", asin), ("isbn", isbn)):
+            if v:
+                body[k] = v
+        return self._req("POST", f"/api/items/{item_id}/match", json=body).json()
+
+    def update_media(self, item_id, label, metadata=None, tags=None):
+        body = {}
+        if metadata:
+            body["metadata"] = metadata
+        if tags is not None:
+            body["tags"] = tags
+        if not body or self._write(f"update metadata of '{label}': {body}"):
+            return
+        self._req("PATCH", f"/api/items/{item_id}/media", json=body)
+
+    def scan_library(self, library_id, name):
+        if self._write(f"scan library '{name}'"):
+            return
+        self._req("POST", f"/api/libraries/{library_id}/scan")

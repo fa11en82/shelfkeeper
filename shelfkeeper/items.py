@@ -26,6 +26,12 @@ def _seq_num(seq):
     return float(m.group()) if m else float("inf")
 
 
+def _pad_seq(seq):
+    """'1' -> '01', '2.5' -> '02.5', other text unchanged."""
+    m = re.fullmatch(r"(\d+)(\.\d+)?", str(seq or ""))
+    return f"{int(m.group(1)):02d}{m.group(2) or ''}" if m else str(seq or "")
+
+
 _SERIES_RE = re.compile(r"^(.*?)\s+#\s*(\S+)$")
 
 
@@ -76,6 +82,11 @@ class Book:
     updated_at: int
     cover_path: str
     missing: bool
+    description: str = ""
+    path: str = ""
+    rel_path: str = ""
+    folder_id: str = ""
+    is_file: bool = False
 
     @classmethod
     def from_api(cls, item):
@@ -111,6 +122,11 @@ class Book:
             updated_at=int(item.get("updatedAt") or 0),
             cover_path=media.get("coverPath") or "",
             missing=bool(item.get("isMissing") or item.get("isInvalid")),
+            description=meta.get("description") or "",
+            path=item.get("path") or "",
+            rel_path=item.get("relPath") or "",
+            folder_id=item.get("folderId") or "",
+            is_file=bool(item.get("isFile")),
         )
 
     # values used by filters / dynamic grouping
@@ -144,6 +160,7 @@ class Book:
             "narrators": ", ".join(self.narrators),
             "series": s.name if s else "",
             "series_sequence": s.sequence if s else "",
+            "series_sequence_padded": _pad_seq(s.sequence) if s else "",
             "year": self.year or "",
             "decade": f"{self.year // 10 * 10}s" if self.year else "",
             "publisher": self.publisher,

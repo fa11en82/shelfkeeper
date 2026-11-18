@@ -9,7 +9,8 @@ class State:
         self.originals_dir = os.path.join(state_dir, "originals")
         os.makedirs(self.originals_dir, exist_ok=True)
         self.path = os.path.join(state_dir, "state.json")
-        self.data = {"collections": {}, "covers": {}}
+        self.moves_log = os.path.join(state_dir, "moves.jsonl")
+        self.data = {"collections": {}, "covers": {}, "matches": {}}
         if os.path.exists(self.path):
             with open(self.path, encoding="utf-8") as f:
                 self.data.update(json.load(f))
@@ -22,6 +23,11 @@ class State:
     def covers(self):
         """{item id: {"sig", "applied_hash", "updated_at", "original_file", "original_ext"}}"""
         return self.data["covers"]
+
+    @property
+    def matches(self):
+        """{item id: {"result": "matched"|"unmatched", "at": epoch, "provider": ...}}"""
+        return self.data["matches"]
 
     def save(self):
         tmp = self.path + ".tmp"

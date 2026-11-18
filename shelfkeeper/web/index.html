@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shelfkeeper</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='6' width='6' height='20' rx='1' fill='%23c2410c'/%3E%3Crect x='12' y='4' width='6' height='22' rx='1' fill='%230f766e'/%3E%3Crect x='20' y='8' width='7' height='18' rx='1' transform='rotate(-10 23 17)' fill='%23a16207'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1c1b19; --muted: #6b6860; --line: #e4e1da;
+  --accent: #0f766e; --accent-ink: #ffffff; --warn: #b45309; --bad: #b91c1c; --good: #15803d;
+  --log-bg: #1c1b19; --log-ink: #e8e6e1; --chip: #efede8;
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141413; --panel: #1d1c1a; --ink: #ecebe7; --muted: #a29f97; --line: #2f2e2a;
+    --accent: #2dd4bf; --accent-ink: #0b1f1d; --warn: #f59e0b; --bad: #f87171; --good: #4ade80;
+    --log-bg: #0e0e0d; --log-ink: #dedcd6; --chip: #26251f;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; align-items: center; gap: 16px; padding: 14px 24px;
+  border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+header h1 { font-size: 18px; margin: 0; letter-spacing: -0.01em; }
+header h1 span { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 6px; }
+nav { display: flex; gap: 4px; margin-left: auto; }
+nav button { background: none; border: 0; color: var(--muted); padding: 6px 12px; border-radius: 6px;
+  font: inherit; cursor: pointer; }
+nav button.on { background: var(--chip); color: var(--ink); font-weight: 600; }
+main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 48px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+  margin: 0 0 12px; font-weight: 600; }
+.row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0;
+  border-bottom: 1px dashed var(--line); }
+.row:last-child { border-bottom: 0; }
+.row b { font-weight: 500; text-align: right; overflow-wrap: anywhere; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 99px;
+  font-size: 13px; font-weight: 600; background: var(--chip); }
+.pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.pill.run::before { background: var(--accent); animation: pulse 1s infinite alternate; }
+.pill.ok::before { background: var(--good); } .pill.bad::before { background: var(--bad); }
+.pill.dry { color: var(--warn); } .pill.dry::before { background: var(--warn); }
+@keyframes pulse { to { opacity: .3; } }
+.steps { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.steps label, .switch { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+  border: 1px solid var(--line); border-radius: 8px; cursor: pointer; user-select: none; }
+select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 10px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.btn { font: inherit; font-weight: 600; border-radius: 8px; padding: 8px 16px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.danger { color: var(--bad); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+#log { background: var(--log-bg); color: var(--log-ink); font: 12.5px/1.55 var(--mono);
+  border-radius: 8px; padding: 12px; height: 420px; overflow: auto; white-space: pre-wrap;
+  overflow-wrap: anywhere; margin: 0; }
+#log .WARNING { color: #fbbf24; } #log .ERROR, #log .CRITICAL { color: #f87171; }
+#log .dry { color: #93c5fd; }
+.loghead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
+.loghead h2 { margin: 0; }
+#cfg { width: 100%; min-height: 560px; font: 13px/1.5 var(--mono); tab-size: 2; resize: vertical; }
+.msg { margin-left: 4px; font-size: 14px; }
+.msg.ok { color: var(--good); } .msg.bad { color: var(--bad); white-space: pre-wrap; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.tile .n { font-size: 28px; font-weight: 650; letter-spacing: -0.02em; }
+.tile .l { color: var(--muted); font-size: 13px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase;
+  letter-spacing: .05em; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+td.path { font: 12.5px/1.45 var(--mono); }
+.empty { color: var(--muted); padding: 12px 8px; }
+.scroll { max-height: 460px; overflow: auto; }
+.hidden { display: none !important; }
+@media (max-width: 640px) {
+  header { padding: 12px 16px; } nav { margin-left: 0; width: 100%; }
+  main { padding: 16px; } #log { height: 320px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>shelfkeeper<span id="ver"></span></h1>
+  <span id="statePill" class="pill">loading</span>
+  <nav>
+    <button data-tab="dash" class="on">Dashboard</button>
+    <button data-tab="config">Config</button>
+    <button data-tab="history">History</button>
+  </nav>
+</header>
+
+<main>
+  <!-- DASHBOARD -->
+  <section id="tab-dash">
+    <div class="grid">
+      <div class="card">
+        <h2>Status</h2>
+        <div class="row"><span>Now</span><b id="sNow">–</b></div>
+        <div class="row"><span>Last run</span><b id="sLast">–</b></div>
+        <div class="row"><span>Next scheduled run</span><b id="sNext">–</b></div>
+        <div class="row"><span>Mode</span><b id="sMode">–</b></div>
+        <div class="row"><span>Audiobookshelf</span><b id="sUrl">–</b></div>
+        <div class="row"><span>Config</span><b id="sCfg">–</b></div>
+      </div>
+
+      <div class="card">
+        <h2>Run now</h2>
+        <div class="steps" id="steps"></div>
+        <div class="actions" style="margin-top:0">
+          <select id="lib"><option value="">All libraries</option></select>
+          <label class="switch"><input type="checkbox" id="dry"> Dry run</label>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="runBtn">Run</button>
+        </div>
+        <p class="hint">A dry run only writes to the log. Steps run in order: metadata, folders, collections, covers.</p>
+      </div>
+
+      <div class="card">
+        <h2>Undo</h2>
+        <div class="actions" style="margin-top:0">
+          <button class="btn danger" id="undoBtn">Undo last folder moves</button>
+          <button class="btn danger" id="resetBtn">Restore original covers</button>
+        </div>
+        <p class="hint">Both follow the Dry run switch. Undo moves reverses only the most recent run that moved folders; click again to go further back.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="loghead">
+        <h2>Log</h2>
+        <label class="switch"><input type="checkbox" id="follow" checked> Follow</label>
+      </div>
+      <pre id="log"></pre>
+    </div>
+  </section>
+
+  <!-- CONFIG -->
+  <section id="tab-config" class="hidden">
+    <div class="card">
+      <div class="loghead">
+        <h2>config.yml</h2>
+        <span class="hint" style="margin:0">Saved with a backup to config.yml.bak</span>
+      </div>
+      <textarea id="cfg" spellcheck="false"></textarea>
+      <div class="actions">
+        <button class="btn" id="validateBtn">Validate</button>
+        <button class="btn primary" id="saveBtn">Save</button>
+        <button class="btn" id="reloadBtn">Reload</button>
+        <span id="cfgMsg" class="msg"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="tab-history" class="hidden">
+    <div class="tiles">
+      <div class="tile"><div class="n" id="tCols">–</div><div class="l">collections managed</div></div>
+      <div class="tile"><div class="n" id="tCovers">–</div><div class="l">covers changed</div></div>
+      <div class="tile"><div class="n" id="tMatched">–</div><div class="l">books matched</div></div>
+      <div class="tile"><div class="n" id="tUnmatched">–</div><div class="l">books with no match</div></div>
+      <div class="tile"><div class="n" id="tMoves">–</div><div class="l">folders moved</div></div>
+    </div>
+    <div class="grid">
+      <div class="card" style="grid-column: 1 / -1">
+        <h2>Folder moves</h2>
+        <div class="scroll"><table><thead><tr><th>When</th><th>From</th><th>To</th></tr></thead>
+          <tbody id="movesBody"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>No match found</h2>
+        <div class="scroll"><table><thead><tr><th>Book</th><th>Last tried</th></tr></thead>
+          <tbody id="unmatchedBody"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>Managed collections</h2>
+        <div class="scroll"><table><thead><tr><th>Name</th><th>Owner</th></tr></thead>
+          <tbody id="colsBody"></tbody></table></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const when = (ts) => ts ? new Date(ts * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "–";
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: { "Content-Type": "application/json", "X-Shelfkeeper": "1", ...(opts.headers || {}) },
+  });
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* empty body */ }
+  if (!res.ok && !("ok" in data)) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+// ---------------------------------------------------------------- tabs
+document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
+  ["dash", "config", "history"].forEach((t) => $("tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  if (b.dataset.tab === "config" && !cfgLoaded) loadConfig();
+  if (b.dataset.tab === "history") loadHistory();
+}));
+
+// -------------------------------------------------------------- status
+let stepsBuilt = false, dryInit = false, libsKey = "";
+async function refreshStatus() {
+  let s;
+  try { s = await api("/api/status"); } catch (e) { $("statePill").textContent = "offline"; return; }
+  $("ver").textContent = " v" + s.version;
+  if (!stepsBuilt) {
+    $("steps").innerHTML = s.steps.map((st) =>
+      `<label><input type="checkbox" value="${st}" checked> ${st}</label>`).join("");
+    stepsBuilt = true;
+  }
+  const pill = $("statePill");
+  if (s.running) { pill.className = "pill run"; pill.textContent = "running"; }
+  else if (s.last && s.last.result !== "ok") { pill.className = "pill bad"; pill.textContent = "last run failed"; }
+  else { pill.className = "pill ok"; pill.textContent = "idle"; }
+
+  $("sNow").textContent = s.running ? `${s.running.label} (since ${when(s.running.started)})` : "idle";
+  $("sLast").textContent = s.last ? `${s.last.label} – ${s.last.result}, ${when(s.last.finished)}` : "none since start";
+  $("sNext").textContent = when(s.next_run);
+  const c = s.config;
+  $("sCfg").innerHTML = c.ok ? `OK – ${c.libraries.map(esc).join(", ")}` : `<span style="color:var(--bad)">${esc(c.error)}</span>`;
+  $("sUrl").textContent = c.ok ? c.url : "–";
+  $("sMode").innerHTML = !c.ok ? "–" : c.dry_run
+    ? `<span class="pill dry">dry run</span>` : `<span class="pill ok">live</span>`;
+  if (c.ok && !dryInit) { $("dry").checked = c.dry_run; dryInit = true; }
+  if (c.ok && libsKey !== c.libraries.join("|")) {
+    libsKey = c.libraries.join("|");
+    $("lib").innerHTML = `<option value="">All libraries</option>` +
+      c.libraries.map((l) => `<option>${esc(l)}</option>`).join("");
+  }
+  const busy = !!s.running;
+  ["runBtn", "undoBtn", "resetBtn"].forEach((id) => $(id).disabled = busy);
+}
+
+async function start(body, confirmText) {
+  if (confirmText && !confirm(confirmText)) return;
+  try {
+    await api("/api/run", { method: "POST", body: JSON.stringify({ ...body, dry_run: $("dry").checked }) });
+  } catch (e) { alert(e.message); }
+  refreshStatus();
+}
+
+$("runBtn").addEventListener("click", () => {
+  const only = [...document.querySelectorAll("#steps input:checked")].map((i) => i.value);
+  if (!only.length) return alert("Pick at least one step.");
+  const live = !$("dry").checked;
+  start({ action: "run", only, library: $("lib").value || null },
+    live ? "Run for real? This changes your Audiobookshelf library." : null);
+});
+$("undoBtn").addEventListener("click", () => start({ action: "undo_moves" },
+  $("dry").checked ? null : "Move the last run's folders back to where they were?"));
+$("resetBtn").addEventListener("click", () => start({ action: "reset_covers" },
+  $("dry").checked ? null : "Restore every original cover and remove all overlays?"));
+
+// ----------------------------------------------------------------- log
+let lastSeq = 0;
+async function pollLog() {
+  try {
+    const d = await api("/api/logs?after=" + lastSeq);
+    if (d.lines.length) {
+      const box = $("log");
+      const frag = document.createDocumentFragment();
+      for (const l of d.lines) {
+        const span = document.createElement("span");
+        span.className = l.level + (l.text.includes("[dry-run]") ? " dry" : "");
+        span.textContent = l.text + "\n";
+        frag.appendChild(span);
+      }
+      box.appendChild(frag);
+      while (box.childNodes.length > 3000) box.removeChild(box.firstChild);
+      if ($("follow").checked) box.scrollTop = box.scrollHeight;
+    }
+    lastSeq = d.last;
+  } catch (e) { /* offline; retry */ }
+}
+
+// -------------------------------------------------------------- config
+let cfgLoaded = false;
+function cfgMsg(text, ok) { const m = $("cfgMsg"); m.textContent = text; m.className = "msg " + (ok ? "ok" : "bad"); }
+async function loadConfig() {
+  const d = await api("/api/config");
+  $("cfg").value = d.text; cfgLoaded = true; cfgMsg(d.exists ? "" : "No config yet", d.exists);
+}
+$("reloadBtn").addEventListener("click", loadConfig);
+$("validateBtn").addEventListener("click", async () => {
+  const d = await api("/api/config/validate", { method: "POST", body: JSON.stringify({ text: $("cfg").value }) });
+  d.ok ? cfgMsg(`Valid – libraries: ${d.libraries.join(", ")}${d.dry_run ? " (dry run on)" : ""}`, true) : cfgMsg(d.error, false);
+});
+$("saveBtn").addEventListener("click", async () => {
+  try {
+    const d = await api("/api/config", { method: "PUT", body: JSON.stringify({ text: $("cfg").value }) });
+    d.ok ? cfgMsg("Saved. Applies on the next run.", true) : cfgMsg(d.error, false);
+    dryInit = false; refreshStatus();
+  } catch (e) { cfgMsg(e.message, false); }
+});
+$("cfg").addEventListener("keydown", (e) => {
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const t = e.target, s = t.selectionStart;
+    t.value = t.value.slice(0, s) + "  " + t.value.slice(t.selectionEnd);
+    t.selectionStart = t.selectionEnd = s + 2;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); $("saveBtn").click(); }
+});
+
+// ------------------------------------------------------------- history
+async function loadHistory() {
+  const d = await api("/api/state");
+  $("tCols").textContent = d.collections.length;
+  $("tCovers").textContent = d.covers;
+  $("tMatched").textContent = d.matched;
+  $("tUnmatched").textContent = d.unmatched.length;
+  $("tMoves").textContent = d.moves_total;
+  const empty = (n, t) => `<tr><td colspan="${n}" class="empty">${t}</td></tr>`;
+  $("movesBody").innerHTML = d.moves.length ? d.moves.map((m) =>
+    `<tr><td>${when(m.at)}</td><td class="path">${esc(m.from)}</td><td class="path">${esc(m.to)}</td></tr>`).join("")
+    : empty(3, "No folders moved yet");
+  $("unmatchedBody").innerHTML = d.unmatched.length ? d.unmatched.map((u) =>
+    `<tr><td>${esc(u.title)}<div class="hint" style="margin:0">${esc(u.author)}</div></td><td>${when(u.at)}</td></tr>`).join("")
+    : empty(2, "Nothing unmatched");
+  $("colsBody").innerHTML = d.collections.length ? d.collections.map((c) =>
+    `<tr><td>${esc(c.name)}</td><td>${c.owner}</td></tr>`).join("")
+    : empty(2, "No collections yet");
+}
+
+refreshStatus(); pollLog();
+setInterval(refreshStatus, 3000);
+setInterval(pollLog, 1500);
+</script>
+</body>
+</html>

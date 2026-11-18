@@ -16,6 +16,52 @@ settings:
 libraries:
   Audiobooks:                       # must match the library name in ABS exactly
 
+    # ------------------------------------------------------------- metadata
+    # Runs first. Matching uses ABS's own providers (same as the Match button);
+    # cleanup rules then tidy the fields. All writes go through the ABS API.
+    metadata:
+      match:
+        providers: [audible, google]    # tried in order: audible audible.uk audible.ca audible.au
+                                        # google openlibrary itunes fantlab custom-<id>
+        when_missing: [asin]            # only books missing any of: asin isbn description narrator
+                                        # author genres series year publisher cover
+        override_details: false         # true = replace existing fields, false = only fill blanks
+        override_cover: false
+        retry_unmatched_days: 30
+        max_per_run: 100
+
+      cleanup:
+        split_genres: true              # "Action & Adventure" -> Action, Adventure
+        genre_map:
+          Science Fiction: Sci-Fi
+          Science Fiction & Fantasy: [Sci-Fi, Fantasy]
+          Literature & Fiction: Fiction
+        drop_genres: [Audiobook, Audiobooks, Unabridged, General]
+        genre_case: title               # capitalise all-lowercase genres
+        max_genres: 5
+        normalize_initials: true        # "J R R Tolkien" -> "J.R.R. Tolkien"
+        author_map:
+          Stephen E. King: Stephen King
+        series_map:
+          The Stormlight Archive: Stormlight Archive
+        language_map: { en: English, eng: English }
+        strip_title_patterns:
+          - '\s*\((Unabridged|Abridged)\)$'
+          - '\s*\[[^\]]*\]$'            # trailing [tags]
+
+    # -------------------------------------------------------------- folders
+    # Renames book folders into one layout. Needs the library mounted into this
+    # container (see docker-compose.yml). Moves are renames on the same disk, so
+    # ABS keeps the same book, progress and collections. Undo: --undo-moves
+    folders:
+      template: "{author}/{series}/{series_sequence_padded} - {title}"
+      template_no_sequence: "{author}/{series}/{title}"
+      template_no_series: "{author}/{title}"
+      max_moves_per_run: 50
+      scan_wait_seconds: 60
+      # path_map:                       # only if the library path differs between ABS and shelfkeeper
+      #   /audiobooks: /data/audiobooks  # ABS path: container path
+
     # ---------------------------------------------------------- collections
     collections:
       Recently Added:

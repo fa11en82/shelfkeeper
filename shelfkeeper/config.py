@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 
 import yaml
 
-from .items import validate_filter, parse_sort, ConfigError, GROUP_TYPES
+from .items import validate_filter, parse_sort, ConfigError, GROUP_TYPES, _as_list
+from .metadata import MISSING_CHECKS
 
 ENV_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}")
 
@@ -26,6 +27,48 @@ OVERLAY_KEYS = {"name", "filter", "text", "image", "image_width", "position", "f
                 "font_size", "color", "background", "padding", "margin", "radius", "banner"}
 POSITIONS = {"top-left", "top", "top-right", "left", "center", "right",
              "bottom-left", "bottom", "bottom-right"}
+MATCH_KEYS = {"enabled", "providers", "when_missing", "filter", "override_cover",
+              "override_details", "retry_unmatched_days", "max_per_run", "rematch"}
+CLEANUP_KEYS = {"enabled", "filter", "genre_map", "drop_genres", "split_genres", "genre_case",
+                "max_genres", "tag_map", "drop_tags", "add_tags", "author_map", "narrator_map",
+                "series_map", "publisher_map", "language_map", "normalize_initials",
+                "strip_title_patterns"}
+FOLDER_KEYS = {"enabled", "filter", "template", "template_no_sequence", "template_no_series",
+               "path_map", "max_moves_per_run", "scan_wait_seconds"}
+LIBRARY_KEYS = {"collections", "dynamic_collections", "overlays", "assets", "metadata", "folders"}
+
+
+def _check_metadata(m, where):
+    _check_keys(m, {"match", "cleanup"}, where)
+    if m.get("match"):
+        mc = m["match"]
+        _check_keys(mc, MATCH_KEYS, f"{where}.match")
+        bad = set(_as_list(mc.get("when_missing", []))) - set(MISSING_CHECKS)
+        if bad:
+            raise ConfigError(f"{where}.match.when_missing: unknown {sorted(bad)}; "
+                              f"allowed: {sorted(MISSING_CHECKS)}")
+        if mc.get("filter") is not None:
+            validate_filter(mc["filter"], f"{where}.match.filter")
+    if m.get("cleanup"):
+        cc = m["cleanup"]
+        _check_keys(cc, CLEANUP_KEYS, f"{where}.cleanup")
+        if cc.get("genre_case", "none") not in ("none", "title"):
+            raise ConfigError(f"{where}.cleanup.genre_case must be 'none' or 'title'")
+        for p in _as_list(cc.get("strip_title_patterns") or []):
+            try:
+                re.compile(p)
+            except re.error as e:
+                raise ConfigError(f"{where}.cleanup.strip_title_patterns: bad regex '{p}': {e}") from e
+        if cc.get("filter") is not None:
+            validate_filter(cc["filter"], f"{where}.cleanup.filter")
+
+
+def _check_folders(fc, where):
+    _check_keys(fc, FOLDER_KEYS, where)
+    if fc.get("filter") is not None:
+        validate_filter(fc["filter"], f"{where}.filter")
+    if fc.get("path_map") is not None and not isinstance(fc["path_map"], dict):
+        raise ConfigError(f"{where}.path_map: expected 'ABS path: container path' pairs")
 
 
 @dataclass
@@ -35,6 +78,8 @@ class LibraryConfig:
     dynamic_collections: list = field(default_factory=list)
     overlays: list = field(default_factory=list)
     assets: bool = True
+    metadata: dict = field(default_factory=dict)
+    folders: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -104,8 +149,11 @@ def load(path):
     libraries = {}
     for lib_name, lc in (raw.get("libraries") or {}).items():
         lc = lc or {}
-        _check_keys(lc, {"collections", "dynamic_collections", "overlays", "assets"},
-                    f"libraries.{lib_name}")
+        _check_keys(lc, LIBRARY_KEYS, f"libraries.{lib_name}")
+        if lc.get("metadata"):
+            _check_metadata(lc["metadata"], f"libraries.{lib_name}.metadata")
+        if lc.get("folders"):
+            _check_folders(lc["folders"], f"libraries.{lib_name}.folders")
         cols = lc.get("collections") or {}
         for cname, c in cols.items():
             c = c or {}
@@ -136,6 +184,8 @@ def load(path):
             dynamic_collections=dyns,
             overlays=ovs,
             assets=bool(lc.get("assets", True)),
+            metadata=lc.get("metadata") or {},
+            folders=lc.get("folders") or {},
         )
     if not libraries:
         raise ConfigError("no libraries configured")
