@@ -1,0 +1,145 @@
+# shelfkeeper config  -  Kometa-style collections & artwork for Audiobookshelf
+# ${VAR} pulls from the container environment; ${VAR:-default} gives a fallback.
+
+abs:
+  url: ${ABS_URL}
+  token: ${ABS_TOKEN}
+
+settings:
+  schedule: ["03:00"]               # daily run times, container TZ
+  run_on_start: true
+  dry_run: true                     # <-- start here; set false once the log looks right
+  delete_removed_collections: true  # delete collections shelfkeeper made that you remove from this file
+  delete_below_minimum: true
+  asset_directory: /config/assets   # custom covers: assets/<Library name>/<ASIN or "Author - Title">.jpg
+
+libraries:
+  Audiobooks:                       # must match the library name in ABS exactly
+
+    # ---------------------------------------------------------- collections
+    collections:
+      Recently Added:
+        filter: { added_within_days: 30 }
+        sort: added.desc
+        limit: 50
+        description: "The {count} newest books on the shelf"
+
+      Quick Listens:
+        filter: { duration_max: 5 }
+        sort: duration.asc
+
+      Epic Listens:
+        filter: { duration_min: 30 }
+        sort: duration.desc
+
+      Horror Night:
+        filter:
+          genre: Horror
+          not: { author: Stephen King }
+        sort: published.asc
+
+      Cosmere:
+        filter:
+          any:
+            - { series_contains: Stormlight }
+            - { series_contains: Mistborn }
+            - { series: Cosmere }
+        sort: published.asc
+
+      Sci-Fi Classics:
+        filter:
+          genre: [Science Fiction, Sci-Fi]
+          year_max: 1990
+        sort: published.asc
+
+      Not In A Series:
+        filter: { has_series: false }
+        sort: author.asc
+        minimum_items: 5
+
+    # ------------------------------------------------- automatic collections
+    dynamic_collections:
+      - type: series                # one collection per series with 3+ books
+        name: "{value}"
+        min_items: 3
+
+      - type: author
+        name: "{value}"
+        min_items: 4
+        exclude: [Various Authors, Unknown]
+
+      - type: narrator
+        name: "Narrated by {value}"
+        min_items: 5
+
+      - type: decade
+        name: "Published in the {value}"
+        min_items: 5
+
+      # - type: genre
+      #   name: "{value}"
+      #   min_items: 10
+      #   include: [Fantasy, Science Fiction, Mystery, Thriller, Horror]
+
+    # ----------------------------------------------------------- overlays
+    # Badges drawn on covers. Originals are backed up to /config/state/originals
+    # and can be restored with:  docker compose run --rm shelfkeeper --reset-covers
+    overlays:
+      - name: series-number
+        filter: { has_series: true }
+        text: "#{series_sequence}"
+        position: top-right
+        font_size: 0.08
+
+      - name: new
+        filter: { added_within_days: 14 }
+        text: NEW
+        position: top-left
+        background: "#D62828E6"
+
+      - name: length
+        text: "{duration}"
+        position: bottom-right
+        font_size: 0.05
+
+      - name: abridged
+        filter: { abridged: true }
+        text: ABRIDGED
+        position: bottom
+        banner: true
+        font_size: 0.05
+        background: "#F77F00E6"
+
+      # image badge example (PNG with transparency, path relative to /config):
+      # - name: award
+      #   filter: { tag: Hugo Winner }
+      #   image: overlays/hugo.png
+      #   image_width: 0.22
+      #   position: bottom-left
+
+# ------------------------------------------------------------- reference
+# FILTERS (all keys in one filter must match; use any/all/not for logic)
+#   text fields: author narrator series genre tag title subtitle publisher
+#                language asin isbn decade
+#     <field>: value or [list]      exact, case-insensitive
+#     <field>_contains: text        substring
+#     <field>_regex: pattern        regular expression
+#   numbers: year_min year_max duration_min duration_max (hours)
+#            added_within_days added_before_days published_within_years
+#   true/false: explicit abridged has_series has_cover
+#   logic: any: [filters]  all: [filters]  not: {filter}
+#
+# SORT: title author narrator published added duration series  +  .asc / .desc
+#
+# COLLECTION KEYS: filter sort limit description minimum_items sync_mode(sync|append)
+# DYNAMIC KEYS:    type(author narrator series genre tag publisher language decade year)
+#                  name filter exclude include min_items sort limit description sync_mode
+#
+# OVERLAY KEYS: text (template) | image, filter, position
+#   (top-left top top-right left center right bottom-left bottom bottom-right),
+#   font_size (fraction of cover width), color, background (#RRGGBBAA),
+#   padding, margin, radius, banner (full width), image_width, font (path to .ttf)
+#
+# TEMPLATE VARIABLES: {title} {subtitle} {author} {authors} {narrator} {narrators}
+#   {series} {series_sequence} {year} {decade} {publisher} {language} {genre}
+#   {duration} {duration_hours} {asin}    (collections: {value} {count})

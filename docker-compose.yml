@@ -1,0 +1,13 @@
+services:
+  shelfkeeper:
+    build: .
+    image: shelfkeeper:latest
+    container_name: shelfkeeper
+    user: "1000:1000"            # match the owner of ./config
+    environment:
+      - TZ=America/Denver
+      - ABS_URL=http://192.168.1.17:13378   # or http://audiobookshelf:80 on the same Docker network
+      - ABS_TOKEN=${ABS_TOKEN}             # put ABS_TOKEN=... in a .env file next to this file
+    volumes:
+      - ./config:/config
+    restart: unless-stopped
